@@ -489,10 +489,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.AnimatorOptimizer
             switch (motion)
             {
                 case AnimationClip clip:
-                    var result = new HashSet<EditorCurveBinding>();
-                    result.UnionWith(AnimationUtility.GetCurveBindings(clip));
-                    result.UnionWith(AnimationUtility.GetObjectReferenceCurveBindings(clip));
-                    return result;
+                    return clip.GetBindings();
                 case BlendTree tree:
                     if (tree.blendType == BlendTreeType.Direct) return null;
                     if (tree.children.Length == 0) return null; // unknown
