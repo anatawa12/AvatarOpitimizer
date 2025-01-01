@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog].
 ### Removed
 
 ### Fixed
+- VRM: Fix BlendShape mapping [`#1375`](https://github.com/anatawa12/AvatarOptimizer/pull/1375)
 
 ### Security
 

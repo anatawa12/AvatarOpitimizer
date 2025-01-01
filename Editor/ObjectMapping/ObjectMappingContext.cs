@@ -420,7 +420,7 @@ namespace Anatawa12.AvatarOptimizer
                 return mappedBindings
                     .Select(mapped => new VRM.BlendShapeBinding
                     {
-                        RelativePath = _mapping.MapPath(mapped.path, typeof(SkinnedMeshRenderer)),
+                        RelativePath = mapped.path,
                         Index = VProp.ParseBlendShapeIndex(mapped.propertyName),
                         Weight = binding.Weight
                     });
@@ -437,8 +437,8 @@ namespace Anatawa12.AvatarOptimizer
             if (vrm10Object == null) return;
             ValidateTemporaryAsset(vrm10Object);
             if (!_fixedObjects.Add(vrm10Object)) return;
-            foreach (var customClip in vrm10Object.Expression.CustomClips)
-                FixVRM10Expression(customClip);
+            foreach (var clip in vrm10Object.Expression.Clips)
+                FixVRM10Expression(clip.Clip);
 
             vrm10Object.FirstPerson.Renderers = vrm10Object.FirstPerson.Renderers
                 .Select(r => new UniVRM10.RendererFirstPersonFlags
@@ -486,7 +486,7 @@ namespace Anatawa12.AvatarOptimizer
                 return mappedBindings
                     .Select(mapped => new UniVRM10.MorphTargetBinding
                     {
-                        RelativePath = _mapping.MapPath(mapped.path, typeof(SkinnedMeshRenderer)),
+                        RelativePath = mapped.path,
                         Index = VProp.ParseBlendShapeIndex(mapped.propertyName),
                         Weight = binding.Weight
                     });
