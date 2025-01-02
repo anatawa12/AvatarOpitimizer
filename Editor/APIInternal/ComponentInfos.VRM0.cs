@@ -1,5 +1,6 @@
 #if AAO_VRM0
 
+using System;
 using System.Linq;
 using Anatawa12.AvatarOptimizer.API;
 using UnityEngine;
@@ -120,31 +121,30 @@ namespace Anatawa12.AvatarOptimizer.APIInternal
         protected override void ApplySpecialMapping(VRMFirstPerson component, MappingSource mappingSource)
         {
             component.Renderers = component.Renderers
-                .Select(r => new VRMFirstPerson.RendererFirstPersonFlags
+                .Select(renderer => renderer.Renderer)
+                .Where(renderer => renderer)
+                .Select(mappingSource.GetMappedComponent)
+                .Where(mappedComponentInfo => mappedComponentInfo.MappedComponent)
+                .GroupBy(mappedComponentInfo => mappedComponentInfo.MappedComponent)
+                .Select(g => g.First())
+                .Select(mappedComponentInfo =>
                 {
-                    Renderer = mappingSource.GetMappedComponent(r.Renderer).MappedComponent,
-                    FirstPersonFlag = r.FirstPersonFlag
-                })
-                .Where(r => r.Renderer)
-                .GroupBy(r => r.Renderer, r => r.FirstPersonFlag)
-                .Select(grouping =>
-                {
-                    FirstPersonFlag mergedFirstPersonFlag;
-                    var firstPersonFlags = grouping.Distinct().ToArray();
-                    if (firstPersonFlags.Length == 1)
+                    if (!mappedComponentInfo.TryGetMappedVrmFirstPersonFlag(out var firstPersonFlag))
                     {
-                        mergedFirstPersonFlag = firstPersonFlags[0];
+                        firstPersonFlag = VrmFirstPersonFlag.Auto;
                     }
-                    else
-                    {
-                        mergedFirstPersonFlag = firstPersonFlags.Contains(FirstPersonFlag.Both) ? FirstPersonFlag.Both : FirstPersonFlag.Auto;
-                        BuildLog.LogWarning("MergeSkinnedMesh:warning:VRM:FirstPersonFlagsMismatch", mergedFirstPersonFlag.ToString());
-                    }
-
                     return new VRMFirstPerson.RendererFirstPersonFlags
                     {
-                        Renderer = grouping.Key,
-                        FirstPersonFlag = mergedFirstPersonFlag
+                        Renderer = mappedComponentInfo.MappedComponent,
+                        FirstPersonFlag = firstPersonFlag switch
+                        {
+
+                            VrmFirstPersonFlag.Auto => FirstPersonFlag.Auto,
+                            VrmFirstPersonFlag.Both => FirstPersonFlag.Both,
+                            VrmFirstPersonFlag.ThirdPersonOnly => FirstPersonFlag.ThirdPersonOnly,
+                            VrmFirstPersonFlag.FirstPersonOnly => FirstPersonFlag.FirstPersonOnly,
+                            _ => throw new ArgumentOutOfRangeException()
+                        }
                     };
                 }).ToList();
         }

@@ -10,6 +10,10 @@ using UnityEngine;
 using UnityEngine.Profiling;
 using Object = UnityEngine.Object;
 
+#if AAO_VRM1
+using UniGLTF.Extensions.VRMC_vrm;
+#endif
+
 namespace Anatawa12.AvatarOptimizer
 {
     [DependsOnContext(typeof(DestroyTracker.ExtensionContext))]
@@ -141,6 +145,12 @@ namespace Anatawa12.AvatarOptimizer
                 found = new API.MappedPropertyInfo(_component, property);
                 return true;
             }
+
+            internal override bool TryGetMappedVrmFirstPersonFlag(out VrmFirstPersonFlag vrmFirstPersonFlag)
+            {
+                vrmFirstPersonFlag = default;
+                return false;
+            }
         }
 
         private class ComponentInfo<T> : MappedComponentInfo<T> where T : Object
@@ -166,6 +176,19 @@ namespace Anatawa12.AvatarOptimizer
                     mappedProp.MappedProperty.Name);
                 return true;
 
+            }
+            
+            internal override bool TryGetMappedVrmFirstPersonFlag(out VrmFirstPersonFlag vrmFirstPersonFlag)
+            {
+                switch (_info.VrmFirstPersonFlag)
+                {
+                    case { } firstPersonFlag: 
+                        vrmFirstPersonFlag = firstPersonFlag;
+                        return true;
+                    case null:
+                        vrmFirstPersonFlag = default;
+                        return false;
+                }
             }
         }
     }
@@ -420,7 +443,7 @@ namespace Anatawa12.AvatarOptimizer
                 return mappedBindings
                     .Select(mapped => new VRM.BlendShapeBinding
                     {
-                        RelativePath = _mapping.MapPath(mapped.path, typeof(SkinnedMeshRenderer)),
+                        RelativePath = mapped.path,
                         Index = VProp.ParseBlendShapeIndex(mapped.propertyName),
                         Weight = binding.Weight
                     });
@@ -437,35 +460,33 @@ namespace Anatawa12.AvatarOptimizer
             if (vrm10Object == null) return;
             ValidateTemporaryAsset(vrm10Object);
             if (!_fixedObjects.Add(vrm10Object)) return;
-            foreach (var customClip in vrm10Object.Expression.CustomClips)
-                FixVRM10Expression(customClip);
+            foreach (var clip in vrm10Object.Expression.Clips)
+                FixVRM10Expression(clip.Clip);
 
             vrm10Object.FirstPerson.Renderers = vrm10Object.FirstPerson.Renderers
-                .Select(r => new UniVRM10.RendererFirstPersonFlags
+                .Select(renderer => renderer.Renderer)
+                .Where(rendererPath => rendererPath != null)
+                .Select(rendererPath => _mapping.MapPath(rendererPath, typeof(Renderer)))
+                .Where(mappedRendererPath => mappedRendererPath != null)
+                .Distinct()
+                .Select(mappedRendererPath =>
                 {
-                    Renderer = _mapping.MapPath(r.Renderer, typeof(Renderer)),
-                    FirstPersonFlag = r.FirstPersonFlag
-                })
-                .Where(r => r.Renderer != null)
-                .GroupBy(r => r.Renderer, r => r.FirstPersonFlag)
-                .Select(grouping =>
-                {
-                    UniGLTF.Extensions.VRMC_vrm.FirstPersonType mergedFirstPersonFlag;
-                    var firstPersonFlags = grouping.Distinct().ToArray();
-                    if (firstPersonFlags.Length == 1)
+                    if (mappedRendererPath == null || !_mapping.TryGetMappedVrmFirstPersonFlag(mappedRendererPath, out var vrmFirstPersonFlag))
                     {
-                        mergedFirstPersonFlag = firstPersonFlags[0];
+                        vrmFirstPersonFlag = VrmFirstPersonFlag.Auto;
                     }
-                    else
-                    {
-                        mergedFirstPersonFlag = firstPersonFlags.Contains(UniGLTF.Extensions.VRMC_vrm.FirstPersonType.both) ? UniGLTF.Extensions.VRMC_vrm.FirstPersonType.both : UniGLTF.Extensions.VRMC_vrm.FirstPersonType.auto;
-                        BuildLog.LogWarning("MergeSkinnedMesh:warning:VRM:FirstPersonFlagsMismatch", mergedFirstPersonFlag.ToString());
-                    }
-
                     return new UniVRM10.RendererFirstPersonFlags
                     {
-                        Renderer = grouping.Key,
-                        FirstPersonFlag = mergedFirstPersonFlag
+                        Renderer = mappedRendererPath,
+                        FirstPersonFlag = vrmFirstPersonFlag switch
+                        {
+
+                            VrmFirstPersonFlag.Auto => FirstPersonType.auto,
+                            VrmFirstPersonFlag.Both => FirstPersonType.both,
+                            VrmFirstPersonFlag.ThirdPersonOnly => FirstPersonType.thirdPersonOnly,
+                            VrmFirstPersonFlag.FirstPersonOnly => FirstPersonType.firstPersonOnly,
+                            _ => throw new ArgumentOutOfRangeException()
+                        }
                     };
                 }).ToList();
         }
@@ -486,7 +507,7 @@ namespace Anatawa12.AvatarOptimizer
                 return mappedBindings
                     .Select(mapped => new UniVRM10.MorphTargetBinding
                     {
-                        RelativePath = _mapping.MapPath(mapped.path, typeof(SkinnedMeshRenderer)),
+                        RelativePath = mapped.path,
                         Index = VProp.ParseBlendShapeIndex(mapped.propertyName),
                         Weight = binding.Weight
                     });

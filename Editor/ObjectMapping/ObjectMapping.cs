@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Anatawa12.AvatarOptimizer.API;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -149,14 +150,17 @@ namespace Anatawa12.AvatarOptimizer
         public readonly int MergedInto;
         public readonly Type Type;
         public readonly IReadOnlyDictionary<string, MappedPropertyInfo> PropertyMapping;
+        public readonly VrmFirstPersonFlag? VrmFirstPersonFlag;
 
         public ComponentInfo(int instanceId, int mergedInto, Type type,
-            IReadOnlyDictionary<string, MappedPropertyInfo> propertyMapping)
+            IReadOnlyDictionary<string, MappedPropertyInfo> propertyMapping,
+            VrmFirstPersonFlag? vrmFirstPersonFlag)
         {
             InstanceId = instanceId;
             MergedInto = mergedInto;
             Type = type;
             PropertyMapping = propertyMapping;
+            VrmFirstPersonFlag = vrmFirstPersonFlag;
         }
     }
 

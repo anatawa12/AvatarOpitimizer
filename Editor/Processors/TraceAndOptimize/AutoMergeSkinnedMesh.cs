@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Anatawa12.AvatarOptimizer.API;
 using Anatawa12.AvatarOptimizer.Processors.SkinnedMeshes;
 using nadena.dev.ndmf;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
-using Debug = System.Diagnostics.Debug;
 
 namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
 {
@@ -159,8 +159,10 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
                 if (rendererAnimationLocations == null)
                     continue; // animating renderer properties with non animator is not supported
 
+                var vrmFirstPersonFlag = GetVrmFirstPersonFlag(context, meshInfo2.SourceRenderer);
+
                 var key = new CategorizationKey(meshInfo2, activeness, activenessAnimationLocations,
-                    rendererAnimationLocations);
+                    rendererAnimationLocations, vrmFirstPersonFlag);
                 if (!categorizedMeshes.TryGetValue(key, out var list))
                 {
                     list = new List<MeshInfo2>();
@@ -477,6 +479,12 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
             return new EqualsHashSet<(string property, float? defaultValue, EqualsHashSet<AnimationLocation> location)>(locations);
         }
 
+        private static VrmFirstPersonFlag GetVrmFirstPersonFlag(BuildContext context, Component component)
+        {
+            // note: unset will fallback to Auto
+            return context.GetMappingBuilder().GetVrmFirstPersonFlag(component) ?? VrmFirstPersonFlag.Auto;
+        }
+
         private static SkinnedMeshRenderer CreateNewRenderer(
             Func<GameObject> gameObjectFactory,
             Transform parent,
@@ -784,6 +792,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
             public EqualsHashSet<(string property, float? defaultValue, EqualsHashSet<AnimationLocation> locations)>
                 RendererAnimationLocations;
             public Activeness Activeness;
+            public VrmFirstPersonFlag VrmFirstPersonFlag;
 
             // renderer properties
             public Bounds Bounds;
@@ -806,7 +815,8 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
                 Activeness activeness,
                 EqualsHashSet<(bool initial, EqualsHashSet<AnimationLocation> animation)> activenessAnimationLocations,
                 EqualsHashSet<(string property, float? defaultValue, EqualsHashSet<AnimationLocation> locations)>
-                    rendererAnimationLocations
+                    rendererAnimationLocations,
+                VrmFirstPersonFlag vrmFirstPersonFlag
             )
             {
                 var renderer = (SkinnedMeshRenderer)meshInfo2.SourceRenderer;
@@ -815,6 +825,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
                 ActivenessAnimationLocations = activenessAnimationLocations;
                 RendererAnimationLocations = rendererAnimationLocations;
                 Activeness = activeness;
+                VrmFirstPersonFlag = vrmFirstPersonFlag;
 
                 Bounds = RoundError.Bounds(meshInfo2.Bounds);
                 ShadowCastingMode = renderer.shadowCastingMode;
@@ -837,6 +848,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
                        ActivenessAnimationLocations.Equals(other.ActivenessAnimationLocations) &&
                        RendererAnimationLocations.Equals(other.RendererAnimationLocations) &&
                        Activeness == other.Activeness &&
+                       VrmFirstPersonFlag == other.VrmFirstPersonFlag &&
                        Bounds.Equals(other.Bounds) &&
                        ShadowCastingMode == other.ShadowCastingMode &&
                        ReceiveShadows == other.ReceiveShadows &&
@@ -863,6 +875,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.TraceAndOptimizes
                 hashCode.Add(ActivenessAnimationLocations);
                 hashCode.Add(RendererAnimationLocations);
                 hashCode.Add(Activeness);
+                hashCode.Add(VrmFirstPersonFlag);
                 hashCode.Add(Bounds);
                 hashCode.Add(ShadowCastingMode);
                 hashCode.Add(ReceiveShadows);
