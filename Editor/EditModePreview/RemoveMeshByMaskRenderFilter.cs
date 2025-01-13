@@ -56,9 +56,13 @@ namespace Anatawa12.AvatarOptimizer.EditModePreview
                     }
                     else
                     {
-                        textureWidth = context.Observe(materialSetting.mask, m => m.width);
-                        textureHeight = context.Observe(materialSetting.mask, m => m.height);
-                        pixels = context.Observe(materialSetting.mask, m => m.GetPixels32(), Utils.Color32ArrayEquals);
+                        // Register to be re-evaluted when the texture changes. We avoid using GetPixels32 here for
+                        // performance reasons, as this is frequently re-invoked by NDMF's PropertyMonitor.
+                        context.Observe(materialSetting.mask, m => (m.width, m.height, m.imageContentsHash));
+
+                        textureWidth = materialSetting.mask.width;
+                        textureHeight = materialSetting.mask.height;
+                        pixels = materialSetting.mask.GetPixels32();
                     }
                     using var pixelsJob = new NativeArray<Color32>(pixels, Allocator.TempJob);
 
