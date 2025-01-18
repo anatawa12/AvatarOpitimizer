@@ -2,7 +2,7 @@ using UnityEditor;
 
 namespace Anatawa12.AvatarOptimizer
 {
-    abstract class AvatarTagComponentEditorBase : Editor
+    public abstract class AvatarTagComponentEditorBase : Editor
     {
         public sealed override void OnInspectorGUI()
         {
