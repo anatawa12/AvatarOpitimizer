@@ -34,13 +34,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.AnimatorOptimizer
 
                 if (blendTree != null)
                 {
-                    var blendTreeModified = ACUtils.AllClips(blendTree).Aggregate(new HashSet<EditorCurveBinding>(),
-                        (set, clip) =>
-                        {
-                            set.UnionWith(AnimationUtility.GetCurveBindings(clip));
-                            set.UnionWith(AnimationUtility.GetObjectReferenceCurveBindings(clip));
-                            return set;
-                        });
+                    var blendTreeModified = blendTree.GetAllBindings();
                     // nothing is animated in higher priority layer
                     if (!blendTreeModified.Any(modifiedProperties.Contains))
                         directBlendTrees.Add((i, blendTree));
@@ -50,11 +44,7 @@ namespace Anatawa12.AvatarOptimizer.Processors.AnimatorOptimizer
                 else
                 {
                     foreach (var motion in layer.GetMotions())
-                    foreach (var clip in ACUtils.AllClips(motion))
-                    {
-                        modifiedProperties.UnionWith(AnimationUtility.GetCurveBindings(clip));
-                        modifiedProperties.UnionWith(AnimationUtility.GetObjectReferenceCurveBindings(clip));
-                    }
+                        modifiedProperties.UnionWith(motion.GetAllBindings());
                 }
             }
 
@@ -121,34 +111,69 @@ namespace Anatawa12.AvatarOptimizer.Processors.AnimatorOptimizer
                 {
                     if (state is
                         {
-                            writeDefaultValues: true,
                             behaviours: { Length: 0 },
                             timeParameterActive: false,
                             motion: BlendTree { } blendTree,
                         })
                     {
-                        bool isMergeableDirectBlendTree = blendTree.blendType == BlendTreeType.Direct;
-
-                        using (var serialized = new SerializedObject(blendTree))
-                            if (serialized.FindProperty("m_NormalizedBlendValues").boolValue)
-                                isMergeableDirectBlendTree = false;
-
-                        if (isMergeableDirectBlendTree)
-                            return blendTree;
-
-                        return new()
+                        if (state.writeDefaultValues)
                         {
-                            blendType = BlendTreeType.Direct,
-                            children = new ChildMotion[]
+                            var isMergeableDirectBlendTree = blendTree.blendType == BlendTreeType.Direct;
+
+                            using (var serialized = new SerializedObject(blendTree))
+                                if (serialized.FindProperty("m_NormalizedBlendValues").boolValue)
+                                    isMergeableDirectBlendTree = false;
+
+                            if (isMergeableDirectBlendTree)
+                                return blendTree;
+
+                            return new()
                             {
-                                new()
+                                blendType = BlendTreeType.Direct,
+                                children = new ChildMotion[]
                                 {
-                                    directBlendParameter = alwaysOneParameter,
-                                    motion = blendTree,
-                                    timeScale = 1,
-                                }
-                            },
-                        };
+                                    new()
+                                    {
+                                        directBlendParameter = alwaysOneParameter,
+                                        motion = blendTree,
+                                        timeScale = 1,
+                                    }
+                                },
+                            };
+                        }
+                        else
+                        {
+                            // for write defaults off, wight sum must be 1
+                            if (ACUtils.AllBlendTrees(blendTree).All(allBlendTree =>
+                                    allBlendTree.blendType is BlendTreeType.Simple1D 
+                                        or BlendTreeType.SimpleDirectional2D
+                                        or BlendTreeType.FreeformDirectional2D 
+                                        or BlendTreeType.FreeformCartesian2D))
+                            {
+                                // verify target properties are same
+                                var clips = ACUtils.AllClips(blendTree).ToHashSet();
+                                var modifiedProperties = clips.GetAllBindings();
+
+                                if (clips.Any(animationClip =>
+                                        !modifiedProperties.SetEquals(animationClip.GetAllBindings())))
+                                    return null;
+
+                                return new()
+                                {
+                                    blendType = BlendTreeType.Direct,
+                                    children = new ChildMotion[]
+                                    {
+                                        new()
+                                        {
+                                            directBlendParameter = alwaysOneParameter,
+                                            motion = blendTree,
+                                            timeScale = 1,
+                                        }
+                                    },
+                                };
+                            }
+                            return null;
+                        }
                     }
                 }
             }
